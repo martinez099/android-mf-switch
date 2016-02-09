@@ -7,7 +7,9 @@
 
 #endif //CB_SWITCH_H
 
-typedef void(* ASensor_callbackFunc)();
+typedef void(* ASensor_callbackFunc)(float*, int, float*, int);
+
+void default_sensor_callback(float* _mfHistory, int _mfHistIdx, float* _accHistory, int _accHistIdx);
 
 void create(ASensor_callbackFunc cb);
 void enable();

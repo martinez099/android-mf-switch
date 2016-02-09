@@ -26,7 +26,28 @@ float magnitude(float x, float y, float z)
     return sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
 }
 
-int mf_cb(int fd, int events, ASensor_callbackFunc cb) {
+void default_sensor_callback(float* _mfHistory, int _mfHistIdx, float* _accHistory, int _accHistIdx)
+{
+    float accMagnitude = _accHistory[_accHistIdx == 0 ? 9 : _accHistIdx - 1];
+    if (roundf(accMagnitude) != 10.0) {
+        //__android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "accMagnitude: %f", accMagnitude);
+        return;
+    }
+
+    float sum = 0;
+    int i;
+    for (i = 0; i < (WINDOW_SIZE - 1); i++) {
+        int idx = (_mfHistIdx + i) % (WINDOW_SIZE - 1);
+        //__android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "idx: %d", idx);
+        sum += (_mfHistory[idx] - _mfHistory[idx == 9 ? 0 : idx + 1]);
+    }
+    sum = fabs(sum);
+    if (sum > 300.0) {
+        __android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "switch triggered!");
+    }
+}
+
+int mf_cb(int fd, int events, ASensor_callbackFunc callback) {
     //__android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "MFCB TID: %lu", pthread_self());
     ASensorEvent event;
     while (ASensorEventQueue_getEvents(mfQueue, &event, 1) > 0)
@@ -34,28 +55,9 @@ int mf_cb(int fd, int events, ASensor_callbackFunc cb) {
         if(event.type==ASENSOR_TYPE_MAGNETIC_FIELD) {
             mfHistory[mfHistIdx] = magnitude(event.magnetic.x, event.magnetic.y, event.magnetic.z);
             mfHistIdx = mfHistIdx >= (WINDOW_SIZE - 1) ? 0 : mfHistIdx + 1;
-            float accMagnitude = accHistory[accHistIdx == 0 ? 9 : accHistIdx - 1];
-            if (roundf(accMagnitude) != 10.0) {
-                //__android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "accMagnitude: %f", accMagnitude);
-                continue;
-            }
-
-            float sum = 0;
-            int i;
-            for (i = 0; i < (WINDOW_SIZE - 1); i++) {
-                int idx = (mfHistIdx + i) % (WINDOW_SIZE - 1);
-                //__android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "idx: %d", idx);
-                sum += (mfHistory[idx] - mfHistory[idx == 9 ? 0 : idx + 1]);
-            }
-            sum = fabs(sum);
-            if (sum > 100) {
-                __android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "sum: %f", sum);
-            }
-            if (sum > 300.0) {
-                cb();
-            }
         }
     }
+    callback(mfHistory, mfHistIdx, accHistory, accHistIdx);
     return 1;
 }
 
