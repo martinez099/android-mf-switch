@@ -1,6 +1,11 @@
-//
-// Created by Martinez on 02.02.16.
-//
+/**
+ * Created by Martinez on 02.02.16.
+ *
+ * This is an implementation of the Android NDK sensors to
+ * detect a magnetic switch like this one from Google Cardboard.
+ *
+ * The `default_sensor_callback` function is a simple algorithm to track the magnetic field changes.
+ */
 
 #include <math.h>
 
@@ -21,9 +26,9 @@ int mfHistIdx = 0;
 float accHistory[WINDOW_SIZE];
 int accHistIdx = 0;
 
-float magnitude(float x, float y, float z)
+float magnitude(float _x, float _y, float _z)
 {
-    return sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
+    return sqrt(pow(_x, 2) + pow(_y, 2) + pow(_z, 2));
 }
 
 void default_sensor_callback(float* _mfHistory, int _mfHistIdx, float* _accHistory, int _accHistIdx)
@@ -47,7 +52,7 @@ void default_sensor_callback(float* _mfHistory, int _mfHistIdx, float* _accHisto
     }
 }
 
-int mf_cb(int fd, int events, ASensor_callbackFunc callback) {
+int mf_callback(int fd, int events, ASensor_callbackFunc callback) {
     //__android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "MFCB TID: %lu", pthread_self());
     ASensorEvent event;
     while (ASensorEventQueue_getEvents(mfQueue, &event, 1) > 0)
@@ -61,7 +66,7 @@ int mf_cb(int fd, int events, ASensor_callbackFunc callback) {
     return 1;
 }
 
-int acc_cb(int fd, int events, void* data) {
+int acc_callback(int fd, int events, void *data) {
     //__android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "ACCCB TID: %lu", pthread_self());
     ASensorEvent event;
     while (ASensorEventQueue_getEvents(accQueue, &event, 1) > 0)
@@ -74,7 +79,7 @@ int acc_cb(int fd, int events, void* data) {
     return 1;
 }
 
-void create(ASensor_callbackFunc cb)
+void create(ASensor_callbackFunc _callback)
 {
     ASensorManager* aManager = ASensorManager_getInstance();
     if (aManager == NULL) {
@@ -102,12 +107,13 @@ void create(ASensor_callbackFunc cb)
     } else {
         __android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "found a looper");
     }
-    mfQueue = ASensorManager_createEventQueue(aManager, aLooper, ALOOPER_POLL_CALLBACK, mf_cb, cb);
+    mfQueue = ASensorManager_createEventQueue(aManager, aLooper, ALOOPER_POLL_CALLBACK, mf_callback,
+                                              _callback);
     if (mfQueue == NULL) {
         __android_log_print(ANDROID_LOG_ERROR, "CardboardSwitch", "could not create magnetic field sensor event queue, aborting");
         return;
     }
-    accQueue = ASensorManager_createEventQueue(aManager, aLooper, ALOOPER_POLL_CALLBACK, acc_cb, NULL);
+    accQueue = ASensorManager_createEventQueue(aManager, aLooper, ALOOPER_POLL_CALLBACK, acc_callback, NULL);
     if (accQueue == NULL) {
         __android_log_print(ANDROID_LOG_ERROR, "CardboardSwitch", "could not create accelerator sensor event queue, aborting");
         return;
