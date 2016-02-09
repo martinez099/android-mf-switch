@@ -22,7 +22,7 @@ void default_sensor_callback(float* _mfHistory, int _mfHistIdx, float* _accHisto
 /**
  * Create the sensors.
  *
- * @param _callback: A function to be called on every sensor event, e.g. `default_sensor_callback`.
+ * @param _callback: A function to be called on every magnetic field sensor event, e.g. `default_sensor_callback`.
  */
 void create(ASensor_callbackFunc _callback);
 
