@@ -3,10 +3,8 @@
  *
  * This is an implementation of the Android NDK sensors to
  * detect a magnetic switch like this one from Google Cardboard.
- *
- * The `default_sensor_callback` function is a simple algorithm to track the magnetic field changes.
  */
-
+#include <assert.h>
 #include <math.h>
 
 #include <android/log.h>
@@ -15,67 +13,83 @@
 
 #include "cb_switch.h"
 
-#define WINDOW_SIZE 10
-
+/*
+ * Create sensors.
+ */
 const ASensor* mfSensor;
 const ASensor* accSensor;
 ASensorEventQueue* mfQueue = NULL;
 ASensorEventQueue* accQueue = NULL;
+
+/*
+ * Create history data.
+ */
 float mfHistory[WINDOW_SIZE];
 int mfHistIdx = 0;
 float accHistory[WINDOW_SIZE];
 int accHistIdx = 0;
 
+/*
+ * Calculcate the magnitude of a vector.
+ *
+ * @param _x: The x coordinate of the vector.
+ * @param _y: The y coordinate of the vector.
+ * @param _z: The z coordinate of the vector.
+ */
 float magnitude(float _x, float _y, float _z)
 {
     return sqrt(pow(_x, 2) + pow(_y, 2) + pow(_z, 2));
 }
 
-void default_sensor_callback(float* _mfHistory, int _mfHistIdx, float* _accHistory, int _accHistIdx)
+/*
+ * Get the next available event from an event queue.
+ *
+ * @param _queue: The event queue to get the event from.
+ * @param _type: The event type.
+ */
+ASensorEvent* get_event_from_queue(ASensorEventQueue* _queue, int _type)
 {
-    float accMagnitude = _accHistory[_accHistIdx == 0 ? 9 : _accHistIdx - 1];
-    if (roundf(accMagnitude) != 10.0) {
-        //__android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "accMagnitude: %f", accMagnitude);
-        return;
-    }
-
-    float sum = 0;
-    int i;
-    for (i = 0; i < (WINDOW_SIZE - 1); i++) {
-        int idx = (_mfHistIdx + i) % (WINDOW_SIZE - 1);
-        //__android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "idx: %d", idx);
-        sum += (_mfHistory[idx] - _mfHistory[idx == 9 ? 0 : idx + 1]);
-    }
-    sum = fabs(sum);
-    if (sum > 300.0) {
-        __android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "switch triggered!");
-    }
-}
-
-int mf_callback(int fd, int events, ASensor_callbackFunc callback) {
-    //__android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "MFCB TID: %lu", pthread_self());
     ASensorEvent event;
-    while (ASensorEventQueue_getEvents(mfQueue, &event, 1) > 0)
+    while (ASensorEventQueue_getEvents(_queue, &event, 1) > 0)
     {
-        if(event.type==ASENSOR_TYPE_MAGNETIC_FIELD) {
-            mfHistory[mfHistIdx] = magnitude(event.magnetic.x, event.magnetic.y, event.magnetic.z);
-            mfHistIdx = mfHistIdx >= (WINDOW_SIZE - 1) ? 0 : mfHistIdx + 1;
+        if(event.type==_type) {
+            return &event;
         }
     }
-    callback(mfHistory, mfHistIdx, accHistory, accHistIdx);
+    return NULL;
+}
+
+/*
+ * This callback is called on every magnetic-field sensor event.
+ *
+ * @param _fd: The filedeskriptor of the event.
+ * @param _events: The event mask.
+ * @param _callback: The callback passed to the `create()` function.
+ */
+int mf_callback(int _fd, int _events, ASensor_callbackFunc _callback) {
+    //__android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "MFCB TID: %lu", pthread_self());
+    ASensorEvent* event = get_event_from_queue(mfQueue, ASENSOR_TYPE_MAGNETIC_FIELD);
+    assert(event);
+    mfHistory[mfHistIdx] = magnitude(event->magnetic.x, event->magnetic.y, event->magnetic.z);
+    mfHistIdx = mfHistIdx >= (WINDOW_SIZE - 1) ? 0 : mfHistIdx + 1;
+    _callback(mfHistory, mfHistIdx, accHistory, accHistIdx);
     return 1;
 }
 
-int acc_callback(int fd, int events, void *data) {
+/*
+ * This callback is called on every accelerometer sensor event.
+ *
+ * @param _fd: The filedeskriptor of the event.
+ * @param _events: The event mask.
+ * @param _data: NULL.
+ */
+int acc_callback(int _fd, int _events, void* _data) {
     //__android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "ACCCB TID: %lu", pthread_self());
-    ASensorEvent event;
-    while (ASensorEventQueue_getEvents(accQueue, &event, 1) > 0)
-    {
-        if(event.type==ASENSOR_TYPE_ACCELEROMETER) {
-            accHistory[accHistIdx] = magnitude(event.acceleration.x, event.acceleration.y, event.acceleration.z);
-            accHistIdx = accHistIdx >= (WINDOW_SIZE - 1) ? 0 : accHistIdx + 1;
-        }
-    }
+    ASensorEvent* event = get_event_from_queue(accQueue, ASENSOR_TYPE_ACCELEROMETER);
+    assert(event);
+    accHistory[accHistIdx] = magnitude(event->acceleration.x, event->acceleration.y,
+                                       event->acceleration.z);
+    accHistIdx = accHistIdx >= (WINDOW_SIZE - 1) ? 0 : accHistIdx + 1;
     return 1;
 }
 
@@ -102,13 +116,12 @@ void create(ASensor_callbackFunc _callback)
     __android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "found accelerometer sensor: %s", sensorName);
     ALooper* aLooper = ALooper_forThread();
     if (aLooper == NULL) {
-        __android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "create new looper");
+        __android_log_print(ANDROID_LOG_DEBUG, "CardboardSwitch", "create new looper");
         aLooper = ALooper_prepare(0);
     } else {
-        __android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "found a looper");
+        __android_log_print(ANDROID_LOG_DEBUG, "CardboardSwitch", "found a looper");
     }
-    mfQueue = ASensorManager_createEventQueue(aManager, aLooper, ALOOPER_POLL_CALLBACK, mf_callback,
-                                              _callback);
+    mfQueue = ASensorManager_createEventQueue(aManager, aLooper, ALOOPER_POLL_CALLBACK, mf_callback, _callback);
     if (mfQueue == NULL) {
         __android_log_print(ANDROID_LOG_ERROR, "CardboardSwitch", "could not create magnetic field sensor event queue, aborting");
         return;
@@ -125,13 +138,13 @@ void enable()
     if (ASensorEventQueue_enableSensor(mfQueue, mfSensor) >= 0) {
         int minDelay = ASensor_getMinDelay(mfSensor);
         if (ASensorEventQueue_setEventRate(mfQueue, mfSensor, minDelay) >= 0) {
-            __android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "enabled magnetic field sensor with %d us delay", minDelay);
+            __android_log_print(ANDROID_LOG_DEBUG, "CardboardSwitch", "enabled magnetic field sensor with %d us delay", minDelay);
         }
     }
     if (ASensorEventQueue_enableSensor(accQueue, accSensor) >= 0) {
         int minDelay = ASensor_getMinDelay(accSensor);
         if (ASensorEventQueue_setEventRate(accQueue, accSensor, minDelay) >= 0) {
-            __android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "enabled accelerator sensor with %d us delay", minDelay);
+            __android_log_print(ANDROID_LOG_DEBUG, "CardboardSwitch", "enabled accelerator sensor with %d us delay", minDelay);
         }
     }
 }
@@ -139,10 +152,10 @@ void enable()
 void disable()
 {
     if (mfQueue != NULL && ASensorEventQueue_disableSensor(mfQueue, mfSensor) == 0) {
-        __android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "disabled magnetic field sensor");
+        __android_log_print(ANDROID_LOG_DEBUG, "CardboardSwitch", "disabled magnetic field sensor");
     }
     if (accQueue != NULL && ASensorEventQueue_disableSensor(accQueue, accSensor) == 0) {
-        __android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "disabled accelerator sensor");
+        __android_log_print(ANDROID_LOG_DEBUG, "CardboardSwitch", "disabled accelerator sensor");
     }
 
 }
@@ -150,9 +163,9 @@ void disable()
 void destroy()
 {
     if (mfQueue != NULL && ASensorManager_destroyEventQueue(ASensorManager_getInstance(), mfQueue) == 0) {
-        __android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "destroyed magnetic field event queue");
+        __android_log_print(ANDROID_LOG_DEBUG, "CardboardSwitch", "destroyed magnetic field event queue");
     }
     if (accQueue != NULL && ASensorManager_destroyEventQueue(ASensorManager_getInstance(), accQueue) == 0) {
-        __android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "destroyed accelerator sensor event queue");
+        __android_log_print(ANDROID_LOG_DEBUG, "CardboardSwitch", "destroyed accelerator sensor event queue");
     }
 }

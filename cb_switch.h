@@ -5,24 +5,24 @@
 #ifndef CB_SWITCH_H
 #define CB_SWITCH_H
 
-#endif //CB_SWITCH_H
+#include <android/looper.h>
 
-typedef void(* ASensor_callbackFunc)(float*, int, float*, int);
+#define WINDOW_SIZE 10
 
 /**
- * Provide a default implementation.
+ * Provide a sensor callback.
  *
  * @param _mfHistory: A float-array of size WINDOW_SIZE with magnetic field measures.
  * @param _mfHistIdx: The current index of the magnetic field measures.
  * @param _accHistory: A float-array of size WINDOW_SIZE with acceleration measures.
  * @param _accHistIdx: The current index of the acceleration measures.
  */
-void default_sensor_callback(float* _mfHistory, int _mfHistIdx, float* _accHistory, int _accHistIdx);
+typedef void(* ASensor_callbackFunc)(float*, int, float*, int);
 
 /**
  * Create the sensors.
  *
- * @param _callback: A function to be called on every magnetic field sensor event, e.g. `default_sensor_callback`.
+ * @param _callback: A function to be called on every magnetic field sensor event.
  */
 void create(ASensor_callbackFunc _callback);
 
@@ -40,3 +40,5 @@ void disable();
  * Destroy the sensors.
  */
 void destroy();
+
+#endif //CB_SWITCH_H
