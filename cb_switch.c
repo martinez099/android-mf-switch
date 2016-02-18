@@ -37,8 +37,7 @@ int accHistIdx = 0;
 ASensorEvent* get_event_from_queue(ASensorEventQueue* _queue, int _type)
 {
     ASensorEvent event;
-    while (ASensorEventQueue_getEvents(_queue, &event, 1) > 0)
-    {
+    while (ASensorEventQueue_getEvents(_queue, &event, 1) > 0) {
         if(event.type==_type) {
             return &event;
         }
@@ -53,7 +52,8 @@ ASensorEvent* get_event_from_queue(ASensorEventQueue* _queue, int _type)
  * @param _events: The event mask.
  * @param _callback: The callback passed to the `create()` function.
  */
-int mf_callback(int _fd, int _events, ASensor_callbackFunc _callback) {
+int mf_callback(int _fd, int _events, ASensor_callbackFunc _callback)
+{
     //__android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "MFCB TID: %lu", pthread_self());
     ASensorEvent* event = get_event_from_queue(mfQueue, ASENSOR_TYPE_MAGNETIC_FIELD);
     assert(event);
@@ -70,7 +70,8 @@ int mf_callback(int _fd, int _events, ASensor_callbackFunc _callback) {
  * @param _events: The event mask.
  * @param _data: NULL.
  */
-int acc_callback(int _fd, int _events, void* _data) {
+int acc_callback(int _fd, int _events, void* _data)
+{
     //__android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "ACCCB TID: %lu", pthread_self());
     ASensorEvent* event = get_event_from_queue(accQueue, ASENSOR_TYPE_ACCELEROMETER);
     assert(event);
