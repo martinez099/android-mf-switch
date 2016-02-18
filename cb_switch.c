@@ -5,7 +5,6 @@
  * detect a magnetic switch like this one from Google Cardboard.
  */
 #include <assert.h>
-#include <math.h>
 
 #include <android/log.h>
 #include <android/looper.h>
@@ -24,22 +23,10 @@ ASensorEventQueue* accQueue = NULL;
 /*
  * Create history data.
  */
-float mfHistory[WINDOW_SIZE];
+ASensorEvent mfHistory[WINDOW_SIZE];
 int mfHistIdx = 0;
-float accHistory[WINDOW_SIZE];
+ASensorEvent accHistory[WINDOW_SIZE];
 int accHistIdx = 0;
-
-/*
- * Calculcate the magnitude of a vector.
- *
- * @param _x: The x coordinate of the vector.
- * @param _y: The y coordinate of the vector.
- * @param _z: The z coordinate of the vector.
- */
-float magnitude(float _x, float _y, float _z)
-{
-    return sqrt(pow(_x, 2) + pow(_y, 2) + pow(_z, 2));
-}
 
 /*
  * Get the next available event from an event queue.
@@ -70,7 +57,7 @@ int mf_callback(int _fd, int _events, ASensor_callbackFunc _callback) {
     //__android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "MFCB TID: %lu", pthread_self());
     ASensorEvent* event = get_event_from_queue(mfQueue, ASENSOR_TYPE_MAGNETIC_FIELD);
     assert(event);
-    mfHistory[mfHistIdx] = magnitude(event->magnetic.x, event->magnetic.y, event->magnetic.z);
+    mfHistory[mfHistIdx] = *event;
     mfHistIdx = mfHistIdx >= (WINDOW_SIZE - 1) ? 0 : mfHistIdx + 1;
     _callback(mfHistory, mfHistIdx, accHistory, accHistIdx);
     return 1;
@@ -87,12 +74,16 @@ int acc_callback(int _fd, int _events, void* _data) {
     //__android_log_print(ANDROID_LOG_INFO, "CardboardSwitch", "ACCCB TID: %lu", pthread_self());
     ASensorEvent* event = get_event_from_queue(accQueue, ASENSOR_TYPE_ACCELEROMETER);
     assert(event);
-    accHistory[accHistIdx] = magnitude(event->acceleration.x, event->acceleration.y,
-                                       event->acceleration.z);
+    accHistory[accHistIdx] = *event;
     accHistIdx = accHistIdx >= (WINDOW_SIZE - 1) ? 0 : accHistIdx + 1;
     return 1;
 }
 
+/**
+ * Create the sensors.
+ *
+ * @param _callback: A function to be called on every magnetic field sensor event.
+ */
 void create(ASensor_callbackFunc _callback)
 {
     ASensorManager* aManager = ASensorManager_getInstance();
@@ -133,6 +124,9 @@ void create(ASensor_callbackFunc _callback)
     }
 }
 
+/**
+ * Enable the sensors.
+ */
 void enable()
 {
     if (ASensorEventQueue_enableSensor(mfQueue, mfSensor) >= 0) {
@@ -149,6 +143,9 @@ void enable()
     }
 }
 
+/**
+ * Disable the sensors.
+ */
 void disable()
 {
     if (mfQueue != NULL && ASensorEventQueue_disableSensor(mfQueue, mfSensor) == 0) {
@@ -160,6 +157,9 @@ void disable()
 
 }
 
+/**
+ * Destroy the sensors.
+ */
 void destroy()
 {
     if (mfQueue != NULL && ASensorManager_destroyEventQueue(ASensorManager_getInstance(), mfQueue) == 0) {

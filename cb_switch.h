@@ -5,19 +5,17 @@
 #ifndef CB_SWITCH_H
 #define CB_SWITCH_H
 
-#include <android/looper.h>
-
 #define WINDOW_SIZE 10
 
 /**
  * Provide a sensor callback.
  *
- * @param _mfHistory: A float-array of size WINDOW_SIZE with magnetic field measures.
+ * @param _mfHistory: An ASensorEvent array of size WINDOW_SIZE with magnetic field measures.
  * @param _mfHistIdx: The current index of the magnetic field measures.
- * @param _accHistory: A float-array of size WINDOW_SIZE with acceleration measures.
+ * @param _accHistory: An ASensorEvent array of size WINDOW_SIZE with acceleration measures.
  * @param _accHistIdx: The current index of the acceleration measures.
  */
-typedef void(* ASensor_callbackFunc)(float*, int, float*, int);
+typedef void(* ASensor_callbackFunc)(ASensorEvent*, int, ASensorEvent*, int);
 
 /**
  * Create the sensors.
